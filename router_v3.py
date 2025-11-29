@@ -1,0 +1,63 @@
+import uuid
+import datetime
+import requests
+import sqlite3
+import json
+
+def route_task(task_json):
+    """
+    Routes a task based on task_type, external_target, and decision from decision_hub.
+
+    Args:
+        task_json (dict): Task data, expected keys: task_id, task_type, external_target, etc.
+
+    Returns:
+        dict: Routing result with routed_to, status, trace_id, timestamp.
+    """
+    trace_id = str(uuid.uuid4())
+    timestamp = datetime.datetime.now().isoformat()
+
+    task_id = task_json.get('task_id', trace_id)
+    task_type = task_json.get('task_type', 'fallback')
+    external_target = task_json.get('external_target', task_type)
+
+    # Simple routing without decision hub
+    decision = 'proceed'
+    score = 0.0
+    top_agent = 'unknown'
+
+    if decision == 'defer':
+        status = 'queued'
+        routed_to = 'queue'
+    else:
+        status = 'sent'
+        # Map to known connectors
+        valid_targets = ['calendar', 'email', 'crm']
+        routed_to = external_target if external_target in valid_targets else 'fallback'
+
+    # DB Integration
+    conn = sqlite3.connect('assistant_core.db')
+    cursor = conn.cursor()
+
+    # Create tables if not exist
+    cursor.execute('''CREATE TABLE IF NOT EXISTS routing_logs (
+        task_id TEXT,
+        routed_to TEXT,
+        status TEXT,
+        trace_id TEXT,
+        timestamp TEXT
+    )''')
+
+    # Insert routing log
+    cursor.execute('INSERT INTO routing_logs (task_id, routed_to, status, trace_id, timestamp) VALUES (?, ?, ?, ?, ?)',
+                   (task_id, routed_to, status, trace_id, timestamp))
+
+    conn.commit()
+    conn.close()
+
+    return {
+        "routed_to": routed_to,
+        "status": status,
+        "trace_id": trace_id,
+        "timestamp": timestamp
+    }
