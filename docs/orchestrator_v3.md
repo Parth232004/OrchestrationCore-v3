@@ -1,7 +1,7 @@
 # OrchestratorCore v3 Documentation
 
 ## Overview
-OrchestratorCore v3 is a scalable, connector-ready pipeline that routes incoming tasks to appropriate external systems, handles retries, fallbacks, and integrates with the Unified DB.
+OrchestratorCore v3 is a scalable, connector-ready pipeline that routes incoming tasks to appropriate external systems, handles retries, fallbacks, and integrates with the Decision Hub and Unified DB.
 
 ## Pipeline Flow Diagram
 
@@ -11,7 +11,11 @@ Task JSON Input
        v
   route_task() in router_v3.py
        |
-       +--> Route based on external_target --> Status: sent --> DB log
+       +--> Fetch decision from /decision_hub
+       |
+       +--> If decision == "defer" --> Status: queued --> DB log
+       |
+       +--> If decision == "proceed" --> Route to connector --> Status: sent --> DB log
        |
        v
   execute_pipeline() in pipeline_controls.py
@@ -46,8 +50,10 @@ Connectors are lightweight modules in the `connectors/` directory. Each exposes 
 ## Routing Rules
 Routing is handled by `route_task(task_json)` in `router_v3.py`:
 - Extracts `task_type` and `external_target` from `task_json`
-- Routes to `external_target` if in ["calendar", "email", "crm"], else "fallback"; status = "sent"
-- Logs routing to DB table `routing_logs`
+- Calls Nilesh's `/decision_hub` with input_text, platform, device_context for intelligent decision making
+- If decision == "proceed": routes to `external_target` if in ["calendar", "email", "crm"], else "fallback"; status = "sent"
+- If decision == "defer": routed_to = "queue", status = "queued"
+- Logs routing and decision to DB tables `routing_logs` and `decisions`
 
 ## Fallback Strategy
 - Primary connector fails after 3 retries (1s, 2s, 4s backoff)
@@ -83,11 +89,15 @@ pipeline_result: `{"final_status": "success"|"failed", "attempts": int, "fallbac
 ## Integration with ContextFlow
 The orchestrator calls Sankalp's ContextFlow API at `/api/contextflow_task` for task creation. The `/orchestrate` endpoint takes a `task_id`, fetches the full task from ContextFlow, enriches it, routes it, and executes the pipeline, returning results for evaluation.
 
+## Integration with Nilesh's Decision Hub
+The router integrates with Nilesh's Decision Hub API at `/decision_hub` (expected on localhost:8000). It sends task data with input_text, platform, device_context for platform-aware decision making. Receives decision outcomes to enable intelligent routing. Compatible logs are written to the shared `assistant_core.db` for unified tracing.
+
 ## Integration with Seeya's SummaryFlow
 The orchestrator enriches incoming tasks with structured summaries using Seeya's SummaryFlow v3 API. Before routing, tasks are processed to extract `summary`, `type`, `intent`, `urgency`, and `entities` (persons, datetime). This provides cleaner, structured context for routing and execution. Summaries are persisted to the shared `assistant_core.db` summaries table.
 
 ## Database Schema
 - **routing_logs**: task_id, routed_to, status, trace_id, timestamp
+- **decisions**: task_id, score, top_agent, decision, timestamp
 - **tasks**: task_id, routed_to, retries, final_status, timestamp, trace_id
 
 ## Error Handling

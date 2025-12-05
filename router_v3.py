@@ -21,10 +21,30 @@ def route_task(task_json):
     task_type = task_json.get('task_type', 'fallback')
     external_target = task_json.get('external_target', task_type)
 
-    # Simple routing without decision hub
-    decision = 'proceed'
-    score = 0.0
-    top_agent = 'unknown'
+    # Fetch decision from Nilesh's Decision Hub
+    try:
+        payload = {
+            'input_text': task_json.get('content', str(task_json)),
+            'platform': task_json.get('platform', 'orchestrator'),
+            'device_context': 'desktop',
+            'voice_input': False
+        }
+        response = requests.post('http://localhost:8000/decision_hub', data=payload, timeout=5)
+        response.raise_for_status()
+        decision_data = response.json()
+        # Map to expected format
+        final_decision = decision_data.get('final_decision', 'fallback')
+        if 'task' in final_decision or 'response' in final_decision:
+            decision = 'proceed'
+        else:
+            decision = 'defer'
+        score = decision_data.get('confidence', 0.0)
+        top_agent = decision_data.get('selected_agent', 'unknown')
+    except requests.RequestException:
+        # Fallback if API fails
+        decision = 'proceed'
+        score = 0.0
+        top_agent = 'unknown'
 
     if decision == 'defer':
         status = 'queued'
@@ -48,9 +68,21 @@ def route_task(task_json):
         timestamp TEXT
     )''')
 
+    cursor.execute('''CREATE TABLE IF NOT EXISTS decisions (
+        task_id TEXT,
+        score REAL,
+        top_agent TEXT,
+        decision TEXT,
+        timestamp TEXT
+    )''')
+
     # Insert routing log
     cursor.execute('INSERT INTO routing_logs (task_id, routed_to, status, trace_id, timestamp) VALUES (?, ?, ?, ?, ?)',
                    (task_id, routed_to, status, trace_id, timestamp))
+
+    # Insert decision
+    cursor.execute('INSERT INTO decisions (task_id, score, top_agent, decision, timestamp) VALUES (?, ?, ?, ?, ?)',
+                   (task_id, score, top_agent, decision, timestamp))
 
     conn.commit()
     conn.close()
