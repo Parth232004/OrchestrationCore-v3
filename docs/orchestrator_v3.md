@@ -61,8 +61,8 @@ Routing is handled by `route_task(task_json)` in `router_v3.py`:
 
 ### Orchestration API
 **Endpoint:** POST /orchestrate
-**Input:** Task JSON dict (keys: task_id, task_type, external_target, etc.)
-**Output:** `{"routing": routing_result, "pipeline": pipeline_result or None}`
+**Input:** `{"task_id": str}`
+**Output:** `{"routing": routing_result, "pipeline": pipeline_result or None}` or `{"error": str}`
 Where routing_result: `{"routed_to": str, "status": "queued"|"sent", "trace_id": str, "timestamp": str}`
 pipeline_result: `{"final_status": "success"|"failed", "attempts": int, "fallback_used": bool}`
 
@@ -81,7 +81,7 @@ pipeline_result: `{"final_status": "success"|"failed", "attempts": int, "fallbac
 **Output:** `{"status": "success"|"failed", "info": str}`
 
 ## Integration with ContextFlow
-The orchestrator exposes a REST API at `/orchestrate` for Sankalp's ContextFlow engine to send task JSON. The API processes routing and pipeline execution, returning results for evaluation.
+The orchestrator calls Sankalp's ContextFlow API at `/api/contextflow_task` for task creation. The `/orchestrate` endpoint takes a `task_id`, fetches the full task from ContextFlow, enriches it, routes it, and executes the pipeline, returning results for evaluation.
 
 ## Integration with Seeya's SummaryFlow
 The orchestrator enriches incoming tasks with structured summaries using Seeya's SummaryFlow v3 API. Before routing, tasks are processed to extract `summary`, `type`, `intent`, `urgency`, and `entities` (persons, datetime). This provides cleaner, structured context for routing and execution. Summaries are persisted to the shared `assistant_core.db` summaries table.

@@ -9,16 +9,33 @@ from pipeline_controls import execute_pipeline
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'seeya_repo'))
 from summaryflow_v3 import summarize_message
 
+# Function to get task from Sankalp's ContextFlow
+def get_task_from_contextflow(task_id: str):
+    import requests
+    response = requests.post('http://localhost:3000/api/contextflow_task', json={'task_id': task_id}, timeout=5)
+    response.raise_for_status()
+    return response.json()
+
 app = FastAPI(title="OrchestratorCore v3", description="Multi-Connector Pipeline + External Routing Engine")
 
 @app.post("/orchestrate")
-async def orchestrate_task(task: dict):
+async def orchestrate_task(request: dict):
     """
-    Orchestrate a task: enrich with summary, route it and execute the pipeline.
+    Orchestrate a task: get task from ContextFlow, enrich with summary, route it and execute the pipeline.
 
-    Input: task JSON dict
+    Input: {"task_id": str}
     Output: {"routing": routing_result, "pipeline": pipeline_result or None}
     """
+    task_id = request.get('task_id')
+    if not task_id:
+        return {"error": "task_id required"}
+
+    # Get task from Sankalp's ContextFlow
+    try:
+        task = get_task_from_contextflow(task_id)
+    except Exception as e:
+        return {"error": f"Failed to get task from ContextFlow: {str(e)}"}
+
     # Enrich task with structured summary from Seeya's SummaryFlow
     payload = {
         "user_id": task.get('user_id', 'unknown'),
