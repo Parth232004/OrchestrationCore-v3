@@ -95,6 +95,9 @@ The router integrates with Nilesh's Decision Hub API at `/decision_hub` (expecte
 ## Integration with Seeya's SummaryFlow
 The orchestrator enriches incoming tasks with structured summaries using Seeya's SummaryFlow v3 API. Before routing, tasks are processed to extract `summary`, `type`, `intent`, `urgency`, and `entities` (persons, datetime). This provides cleaner, structured context for routing and execution. Summaries are persisted to the shared `assistant_core.db` summaries table.
 
+## Integration with Chandresh's EmbedCore
+The orchestrator generates deterministic embeddings for task content using Chandresh's EmbedCore v3. Embeddings are created for future use in routing decisions and similarity matching. This prepares the system for advanced embedding-based intelligence in task processing.
+
 ## Database Schema
 - **routing_logs**: task_id, routed_to, status, trace_id, timestamp
 - **decisions**: task_id, score, top_agent, decision, timestamp

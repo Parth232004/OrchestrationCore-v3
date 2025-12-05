@@ -9,6 +9,10 @@ from pipeline_controls import execute_pipeline
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'seeya_repo'))
 from summaryflow_v3 import summarize_message
 
+# Add chandresh_repo to path for embedding integration
+sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'chandresh_repo'))
+from embedcore_v3 import generate_embedding
+
 # Function to get task from Sankalp's ContextFlow
 def get_task_from_contextflow(task_id: str):
     import requests
@@ -46,6 +50,13 @@ async def orchestrate_task(request: dict):
     }
     summary = summarize_message(payload)
     task.update(summary)  # Add summary fields to task
+
+    # Generate embedding for routing decisions (optional for future use)
+    try:
+        embedding = generate_embedding(task.get('content', str(task)))
+        task['embedding'] = embedding
+    except Exception as e:
+        print(f"Embedding generation failed: {e}")
 
     routing_result = route_task(task)
     if routing_result["status"] == "sent":
