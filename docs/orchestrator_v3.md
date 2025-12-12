@@ -98,6 +98,9 @@ The orchestrator enriches incoming tasks with structured summaries using Seeya's
 ## Integration with Chandresh's EmbedCore
 The orchestrator generates deterministic embeddings for task content using Chandresh's EmbedCore v3. Embeddings are created for future use in routing decisions and similarity matching. This prepares the system for advanced embedding-based intelligence in task processing.
 
+## Integration with Yash's Frontend
+After routing and pipeline execution, the orchestrator sends routing and pipeline results to Yash's frontend API at `/api/routing_result` (expected on localhost:4000). This allows the frontend to display real-time success/fail/fallback status for user visibility. The call is asynchronous and non-blocking to avoid impacting orchestration performance.
+
 ## Database Schema
 - **routing_logs**: task_id, routed_to, status, trace_id, timestamp
 - **decisions**: task_id, score, top_agent, decision, timestamp

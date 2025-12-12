@@ -17,7 +17,7 @@ class TestOrchestratorV3(unittest.TestCase):
     @patch('router_v3.requests.post')
     @patch('router_v3.sqlite3.connect')
     def test_route_task_proceed(self, mock_connect, mock_post):
-        mock_post.return_value.json.return_value = {'decision': 'proceed', 'score': 0.8, 'top_agent': 'agent1'}
+        mock_post.return_value.json.return_value = {'data': {'decision': 'task_response', 'final_score': 0.8, 'top_agent': 'agent1'}}
         mock_conn = MagicMock()
         mock_connect.return_value = mock_conn
 
@@ -34,7 +34,7 @@ class TestOrchestratorV3(unittest.TestCase):
     @patch('router_v3.requests.post')
     @patch('router_v3.sqlite3.connect')
     def test_route_task_defer(self, mock_connect, mock_post):
-        mock_post.return_value.json.return_value = {'decision': 'defer', 'score': 0.5, 'top_agent': 'agent2'}
+        mock_post.return_value.json.return_value = {'data': {'decision': 'defer', 'final_score': 0.5, 'top_agent': 'agent2'}}
         mock_conn = MagicMock()
         mock_connect.return_value = mock_conn
 
@@ -47,7 +47,7 @@ class TestOrchestratorV3(unittest.TestCase):
     @patch('router_v3.requests.post')
     @patch('router_v3.sqlite3.connect')
     def test_route_task_fallback_target(self, mock_connect, mock_post):
-        mock_post.return_value.json.return_value = {'decision': 'proceed', 'score': 0.9, 'top_agent': 'agent3'}
+        mock_post.return_value.json.return_value = {'data': {'decision': 'task_response', 'final_score': 0.9, 'top_agent': 'agent3'}}
         mock_conn = MagicMock()
         mock_connect.return_value = mock_conn
 

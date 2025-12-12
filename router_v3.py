@@ -23,23 +23,28 @@ def route_task(task_json):
 
     # Fetch decision from Nilesh's Decision Hub
     try:
-        payload = {
-            'input_text': task_json.get('content', str(task_json)),
-            'platform': task_json.get('platform', 'orchestrator'),
-            'device_context': 'desktop',
-            'voice_input': False
+        envelope = {
+            'trace_id': trace_id,
+            'payload': {
+                'content': task_json.get('content', str(task_json)),
+                'rl_reward': 0.0,
+                'user_feedback': 0.0,
+                'action_success': 0.0,
+                'cognitive_score': 0.0,
+                'confidences': {}
+            }
         }
-        response = requests.post('http://localhost:8000/decision_hub', data=payload, timeout=5)
+        response = requests.post('http://localhost:8000/api/decision_hub', json=envelope, timeout=5)
         response.raise_for_status()
-        decision_data = response.json()
+        decision_data = response.json()['data']
         # Map to expected format
-        final_decision = decision_data.get('final_decision', 'fallback')
+        final_decision = decision_data.get('decision', 'fallback')
         if 'task' in final_decision or 'response' in final_decision:
             decision = 'proceed'
         else:
             decision = 'defer'
-        score = decision_data.get('confidence', 0.0)
-        top_agent = decision_data.get('selected_agent', 'unknown')
+        score = decision_data.get('final_score', 0.0)
+        top_agent = decision_data.get('top_agent', 'unknown')
     except requests.RequestException:
         # Fallback if API fails
         decision = 'proceed'

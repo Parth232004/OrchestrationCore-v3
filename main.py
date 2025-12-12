@@ -20,6 +20,22 @@ def get_task_from_contextflow(task_id: str):
     response.raise_for_status()
     return response.json()
 
+# Function to send routing results to Yash's frontend
+def send_to_yash_frontend(routing_result: dict, pipeline_result: dict = None):
+    import requests
+    import threading
+    def _send():
+        try:
+            payload = {
+                "routing": routing_result,
+                "pipeline": pipeline_result,
+                "timestamp": datetime.now().isoformat()
+            }
+            requests.post('http://localhost:4000/api/routing_result', json=payload, timeout=5)
+        except Exception as e:
+            print(f"Failed to send to Yash frontend: {e}")
+    threading.Thread(target=_send).start()
+
 app = FastAPI(title="OrchestratorCore v3", description="Multi-Connector Pipeline + External Routing Engine")
 
 @app.post("/orchestrate")
@@ -61,9 +77,14 @@ async def orchestrate_task(request: dict):
     routing_result = route_task(task)
     if routing_result["status"] == "sent":
         pipeline_result = execute_pipeline(task, routing_result["routed_to"], routing_result["trace_id"])
-        return {"routing": routing_result, "pipeline": pipeline_result}
+        result = {"routing": routing_result, "pipeline": pipeline_result}
     else:
-        return {"routing": routing_result, "pipeline": None}
+        pipeline_result = None
+        result = {"routing": routing_result, "pipeline": None}
+
+    # Send results to Yash's frontend
+    send_to_yash_frontend(routing_result, pipeline_result)
+    return result
 
 if __name__ == "__main__":
     import uvicorn
