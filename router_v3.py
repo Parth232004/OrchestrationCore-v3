@@ -81,6 +81,13 @@ def route_task(task_json):
         timestamp TEXT
     )''')
 
+    cursor.execute('''CREATE TABLE IF NOT EXISTS queue (
+        task_id TEXT,
+        task_json TEXT,
+        queued_at TEXT,
+        status TEXT DEFAULT 'pending'
+    )''')
+
     # Insert routing log
     cursor.execute('INSERT INTO routing_logs (task_id, routed_to, status, trace_id, timestamp) VALUES (?, ?, ?, ?, ?)',
                    (task_id, routed_to, status, trace_id, timestamp))
@@ -88,6 +95,11 @@ def route_task(task_json):
     # Insert decision
     cursor.execute('INSERT INTO decisions (task_id, score, top_agent, decision, timestamp) VALUES (?, ?, ?, ?, ?)',
                    (task_id, score, top_agent, decision, timestamp))
+
+    # If deferred, enqueue
+    if decision == 'defer':
+        cursor.execute('INSERT INTO queue (task_id, task_json, queued_at) VALUES (?, ?, ?)',
+                       (task_id, json.dumps(task_json), timestamp))
 
     conn.commit()
     conn.close()
@@ -98,3 +110,25 @@ def route_task(task_json):
         "trace_id": trace_id,
         "timestamp": timestamp
     }
+
+def process_queue():
+    """
+    Stub function to process queued tasks.
+    In a real implementation, this would re-evaluate decisions or route to alternative agents.
+    """
+    conn = sqlite3.connect('assistant_core.db')
+    cursor = conn.cursor()
+
+    # Get pending tasks
+    cursor.execute('SELECT task_id, task_json FROM queue WHERE status = "pending"')
+    pending_tasks = cursor.fetchall()
+
+    for task_id, task_json_str in pending_tasks:
+        task_json = json.loads(task_json_str)
+        # Stub: re-route or mark as processed
+        # For now, just mark as processed
+        cursor.execute('UPDATE queue SET status = "processed" WHERE task_id = ?', (task_id,))
+
+    conn.commit()
+    conn.close()
+    return len(pending_tasks)

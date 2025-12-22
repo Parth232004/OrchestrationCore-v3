@@ -19,6 +19,8 @@ class TestOrchestratorV3(unittest.TestCase):
     def test_route_task_proceed(self, mock_connect, mock_post):
         mock_post.return_value.json.return_value = {'data': {'decision': 'task_response', 'final_score': 0.8, 'top_agent': 'agent1'}}
         mock_conn = MagicMock()
+        mock_cursor = MagicMock()
+        mock_conn.cursor.return_value = mock_cursor
         mock_connect.return_value = mock_conn
 
         task_json = {'task_id': '123', 'task_type': 'calendar'}
@@ -28,7 +30,12 @@ class TestOrchestratorV3(unittest.TestCase):
         self.assertEqual(result['status'], 'sent')
         self.assertIn('trace_id', result)
         self.assertIn('timestamp', result)
-        mock_conn.cursor().execute.assert_called()
+        # DB write verification
+        self.assertEqual(mock_cursor.execute.call_count, 3)  # CREATE TABLE x2, INSERT x2
+        calls = mock_cursor.execute.call_args_list
+        # Check inserts
+        self.assertIn('INSERT INTO routing_logs', str(calls[-2]))  # Second last is routing_logs insert
+        self.assertIn('INSERT INTO decisions', str(calls[-1]))  # Last is decisions insert
         mock_conn.commit.assert_called()
 
     @patch('router_v3.requests.post')
@@ -36,6 +43,8 @@ class TestOrchestratorV3(unittest.TestCase):
     def test_route_task_defer(self, mock_connect, mock_post):
         mock_post.return_value.json.return_value = {'data': {'decision': 'defer', 'final_score': 0.5, 'top_agent': 'agent2'}}
         mock_conn = MagicMock()
+        mock_cursor = MagicMock()
+        mock_conn.cursor.return_value = mock_cursor
         mock_connect.return_value = mock_conn
 
         task_json = {'task_id': '124', 'task_type': 'email'}
@@ -43,6 +52,9 @@ class TestOrchestratorV3(unittest.TestCase):
 
         self.assertEqual(result['routed_to'], 'queue')
         self.assertEqual(result['status'], 'queued')
+        # Check queue insert
+        calls = mock_cursor.execute.call_args_list
+        self.assertIn('INSERT INTO queue', str(calls[-1]))  # Last insert is queue
 
     @patch('router_v3.requests.post')
     @patch('router_v3.sqlite3.connect')
